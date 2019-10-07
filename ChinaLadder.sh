@@ -54,8 +54,9 @@ check_command () {
 }
 
 # Main Prog.
-# 本程序用于自动更换 EC2 实例的公网 IP 地址
-# 运行本脚本前先运行 aws configure 命令，根据要求配置好密码
+# 本脚本用于自动更换 EC2 实例的公网 IP 地址
+# 目前仅用于当前 AWS Profile 下只有一个实例的情况
+# 运行本脚本前请先运行 aws configure 命令，根据要求配置好密钥
 # https://docs.amazonaws.cn/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration
 # 本脚本仅用于 bash 环境
 # 如果需要 Windows 上使用请参考文章：
@@ -64,7 +65,9 @@ check_command () {
 # https://docs.amazonaws.cn/cli/latest/userguide/install-windows.html
 # 
 # 这个 PORT 是你自己的 SS 侦听的端口，要根据你自己的配置设定
-# 本程序肯定是定期执行，譬如每 5 分钟检查端口被封情况
+# 本程序有条件的话可以定期执行，譬如每 5 分钟检查端口被封情况
+# 当然没有条件的话，遇到问题,手工跑这个脚本
+# 本脚本目前仅用于更换 IP，DNS 的事情后面再说
 # -- Todo: GoDaddy DNS 自动注册
 #
 PORT=2019
