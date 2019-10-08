@@ -31,7 +31,7 @@ add_ip () {
 remove_floatIP () {
 	# 删除多余的 IP 地址
 	echo "检查当前 AWS Profile 下可能存在的浮动的(没有被分配的) IP ..."
-	aws ec2 describe-addresses >/dev/null
+	aws ec2 describe-addresses >$tmpJSON
 	[ $? != 0 ] && echo "看上去执行 aws 命令有错啊！先跑一下 aws configure 命令吧！" && exit 10
 	for i in $(seq 0 9)
 	do
@@ -41,11 +41,7 @@ remove_floatIP () {
 		INST=$(jq ".Addresses[$i]" $tmpJSON|jq -r '.InstanceId')
 		[ "$INST" == "null" ] && release_ip
 	done
-}
-
-check_port () {
-	nc -4 -w 2 $OLDIP ${PORT}
-	[ $? == 0 ] && echo "看上去端口是好的啊！请检查是否其他问题再更改 IP 吧！" && exit 99
+	rm $tmpJSON
 }
 
 check_command () {
@@ -72,7 +68,7 @@ GoDaddy() {
 	RECORD=$(echo $FQDN|awk -F"." '{print $1}')
 	DOMAIN=$(echo $FQDN|awk -F"." '{print $(NF - 1) "." $NF}')
 	API_URL="https://api.godaddy.com/v1/domains"
-	URL=${API_URL}/${DOMAIN}/records/${TYPE}/${RECORD}
+	URL=${API_URL}/${DOMAIN}/records/A/${RECORD}
 	API_KEY=$(cat godaddy.json |jq -r '.[] | .api_key')
 	API_SECRET=$(cat godaddy.json |jq -r '.[] | .api_secret')
 	CURR_IP=$(curl -sS -X GET -H "Authorization: sso-key $API_KEY:$API_SECRET" $URL|jq -r '.[] | .data')
@@ -86,13 +82,25 @@ GoDaddy() {
 	echo "恭喜：设置域名 $FQDN 为新的 IP：$newIP 成功，请稍后客户端 ping/nslookup"
 }
 
+check_port () {
+	echo "检查 IP/主机: $1 上的端口 $2 ..."
+	nc -4 -w 2 $1 $2
+	[ $? == 0 ] && echo "看上去端口 $2 是好的啊！请检查是否其他问题再更改 IP 吧！" && exit 99
+}
+
 syntax () {
-	echo "$0 -p PORT [ -d FQDN -t TYPE ]"
+	echo "$0 -p PORT [ -d FQDN ]"
 	echo "	端口号 Port 为必须参数，用于检测对应的服务"
 	echo "	FQDN 为服务器完整的域名，例如 hostname.domain.com"
-	echo "	TYPE 为记录类型，默认 A"
-	echo "	没有 FQDN 和 TYPE 时，不修改 DNS 记录"
+	echo "	没有 FQDN 时，不修改 DNS 记录"
 	exit 2
+}
+
+is_all_digits () {
+  case $1 in 
+	  *[!0-9]*) echo "0";; 
+	         *) echo "1";;
+  esac
 }
 
 # #######################################################################
@@ -126,10 +134,6 @@ while getopts "p:t:d:" opt 2>/dev/null; do
       # 要修改的 DNS 域名全称
       FQDN=$OPTARG
       ;;
-    t)
-      # 要修改的DNS 记录类型
-      TYPE=$OPTARG
-      ;;
     \?)
       echo "无效参数 -$OPTARG"
       syntax
@@ -137,7 +141,11 @@ while getopts "p:t:d:" opt 2>/dev/null; do
   esac
 done
 [ -z "$PORT" ] && syntax
-[ -n "$FQDN" -a -z "$TYPE" ] && TYPE="A"
+if [ $(is_all_digits $PORT) -eq 0 ]; then 
+ 	echo "端口号 $PORT 不是数字!" 
+	syntax
+fi
+[ -n "$FQDN" ] && check_port $FQDN $PORT
 
 # 设置临时文件
 tmpJSON="/tmp/awscli.json"
@@ -150,7 +158,7 @@ AllocId=$(aws ec2 describe-addresses --public-ips $OLDIP|jq -r '.Addresses[] | .
 
 if [ -n "${OLDIP}" ];then
 	echo "实例 $INST 当前的 IP 为 ${OLDIP} 分配到 $AllocId"
-	check_port
+	check_port $OLDIP $PORT
 	replace_ip
 else
 	echo "实例 $INST 当前没有分配公网 IP 地址"
