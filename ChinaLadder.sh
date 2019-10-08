@@ -50,7 +50,7 @@ check_command () {
 		[ $? != 0 ] && echo "命令 $cmd 不存在，请检查！" && exit 1
 	done
 	if [ -n "$MAIL_TO" ];then
-		which mailx >/dev/nulll
+		which mail >/dev/nulll
 		[ $? != 0 ] && echo "命令 $cmd 不存在，请检查！" && exit 1
 	fi
 }
@@ -91,7 +91,7 @@ GoDaddy() {
 
 send_mail () {
 	[ -z "$MAIL_TO" -o -z "$msg" -o -z "$subject" ] && return
-	echo "$msg"|mailx -s "$subject" -r "ChinaLadder@$(hostname).local"  \
+	echo "$msg"|mail -s "$subject" -r "ChinaLadder@$(hostname).local"  \
 	-a 'Content-Type: text/html; charset=UTF-8' \
 	-a 'Content-Transfer-Encoding: 8bit' $MAIL_TO
 }
