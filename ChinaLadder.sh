@@ -86,12 +86,14 @@ GoDaddy() {
 	msg="恭喜：设置域名 $FQDN 为新的 IP：$newIP 成功，请稍后在客户端 ping/nslookup"
 	subject="设置域名 $FQDN 为新的 IP：$newIP"
 	echo $msg
-	send_mail $subject $msg
+	send_mail
 }
 
 send_mail () {
-	[ -z "$MAIL_TO" ] && return
-	echo $2|mailx -s "$1" -r 'ChinaLadder <chinaladder@dnscrypt.local>' $MAIL_TO
+	[ -z "$MAIL_TO" -o -z "$msg" -o -z "$subject" ] && return
+	echo "$msg"|mailx -s "$subject" -r "ChinaLadder@$(hostname).local"  \
+	-a 'Content-Type: text/html; charset=UTF-8' \
+	-a 'Content-Transfer-Encoding: 8bit' $MAIL_TO
 }
 
 check_port () {
