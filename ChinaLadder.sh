@@ -45,10 +45,14 @@ remove_floatIP () {
 }
 
 check_command () {
-	for cmd in jq nc aws;do
+	for cmd in jq nc aws curl;do
 		which $cmd >/dev/nulll
 		[ $? != 0 ] && echo "命令 $cmd 不存在，请检查！" && exit 1
 	done
+	if [ -n "$MAIL_TO" ];then
+		which mailx >/dev/nulll
+		[ $? != 0 ] && echo "命令 $cmd 不存在，请检查！" && exit 1
+	fi
 }
 
 generate_json () {
@@ -57,20 +61,20 @@ generate_json () {
           "api_key": "your_api_key_here",
           "api_secret": "your_api_secret_here"
   }
-]' > godaddy.json
+]' > $GODADDY_KEY
 	echo "请修改当前目录下的 godaddy.json 填写好 api_key/api_scret 的值"
 }
 
 GoDaddy() {
-	[ ! -f "godaddy.json" ] && generate_json && return
+	[ ! -f "$GODADDY_KEY" ] && generate_json && return
 	newIP=$1
 	[ -z "$newIP" ] && return
 	RECORD=$(echo $FQDN|awk -F"." '{print $1}')
 	DOMAIN=$(echo $FQDN|awk -F"." '{print $(NF - 1) "." $NF}')
 	API_URL="https://api.godaddy.com/v1/domains"
 	URL=${API_URL}/${DOMAIN}/records/A/${RECORD}
-	API_KEY=$(cat godaddy.json |jq -r '.[] | .api_key')
-	API_SECRET=$(cat godaddy.json |jq -r '.[] | .api_secret')
+	API_KEY=$(cat $GODADDY_KEY |jq -r '.[] | .api_key')
+	API_SECRET=$(cat $GODADDY_KEY |jq -r '.[] | .api_secret')
 	CURR_IP=$(curl -sS -X GET -H "Authorization: sso-key $API_KEY:$API_SECRET" $URL|jq -r '.[] | .data')
 	echo "域名 $FQDN 当前的 IP 是： $CURR_IP"
 	curl -sS -X PUT $URL \
@@ -79,7 +83,15 @@ GoDaddy() {
 	-H "Authorization: sso-key $API_KEY:$API_SECRET" \
 	-d "[{\"data\": \"${newIP}\"}]"
 	[ $? != 0 ] && echo " :-( 修改 IP 地址失败，请检查!" && return
-	echo "恭喜：设置域名 $FQDN 为新的 IP：$newIP 成功，请稍后客户端 ping/nslookup"
+	msg="恭喜：设置域名 $FQDN 为新的 IP：$newIP 成功，请稍后在客户端 ping/nslookup"
+	subject="设置域名 $FQDN 为新的 IP：$newIP"
+	echo $msg
+	send_mail $subject $msg
+}
+
+send_mail () {
+	[ -z "$MAIL_TO" ] && return
+	echo $2|mailx -s "$1" -r 'ChinaLadder <chinaladder@dnscrypt.local>' $MAIL_TO
 }
 
 check_port () {
@@ -134,6 +146,10 @@ while getopts "p:t:d:" opt 2>/dev/null; do
       # 要修改的 DNS 域名全称
       FQDN=$OPTARG
       ;;
+    t)
+      # 收件人邮件地址
+      MAIL_TO=$OPTARG
+      ;;
     \?)
       echo "无效参数 -$OPTARG"
       syntax
@@ -141,14 +157,12 @@ while getopts "p:t:d:" opt 2>/dev/null; do
   esac
 done
 [ -z "$PORT" ] && syntax
-if [ $(is_all_digits $PORT) -eq 0 ]; then 
- 	echo "端口号 $PORT 不是数字!" 
-	syntax
-fi
+[ $(is_all_digits $PORT) -eq 0 ] &&  echo "端口号 $PORT 不是数字!"  && syntax
 [ -n "$FQDN" ] && check_port $FQDN $PORT
 
 # 设置临时文件
 tmpJSON="/tmp/awscli.json"
+GODADDY_KEY="$(dirname $0)/godaddy.json"
 check_command
 remove_floatIP
 aws ec2 describe-instances >$tmpJSON
