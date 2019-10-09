@@ -3,17 +3,17 @@
 # 详细使用说明请参见 Main Prog. 部分
 
 release_ip () {
- aws ec2 release-address --allocation-id $AllocId
+ $AWS ec2 release-address --allocation-id $AllocId
  [ $? == 0 ] && echo "IP $OLDIP 成功释放." || echo " :-( IP $OLDIP 释放失败"
 }
 
 new_ip () {
-  NEWIP=$(aws ec2 allocate-address|jq -r '.PublicIp')
+  NEWIP=$($AWS ec2 allocate-address|jq -r '.PublicIp')
   [ -n "$NEWIP" ] && echo "拿到了新的 IP: $NEWIP" || (echo "取新 IP 地址失败了！";return)
 }
 
 associate_ip () {
-  aws ec2 associate-address --instance-id ${INST} --public-ip ${NEWIP}
+  $AWS ec2 associate-address --instance-id ${INST} --public-ip ${NEWIP}
   [ $? == 0 ] && echo "IP $NEWIP 成功的绑定到了实例 $INST" || echo " :-( 绑定 IP:$NEWIP 到实例 $INST 失败"
   [ -n "$FQDN" ] && GoDaddy $NEWIP
 }
@@ -31,7 +31,7 @@ add_ip () {
 remove_floatIP () {
 	# 删除多余的 IP 地址
 	echo "检查当前 AWS Profile 下可能存在的浮动的(没有被分配的) IP ..."
-	aws ec2 describe-addresses >$tmpJSON
+	$AWS ec2 describe-addresses >$tmpJSON
 	[ $? != 0 ] && echo "看上去执行 aws 命令有错啊！先跑一下 aws configure 命令吧！" && exit 10
 	for i in $(seq 0 9)
 	do
@@ -120,9 +120,10 @@ is_all_digits () {
 # #######################################################################
 # Main Prog.
 # 本脚本用于自动更换 EC2 实例的公网 IP 地址
-# 目前仅用于当前 AWS Profile 下只有一个实例的情况
 # 运行本脚本前请先运行 aws configure 命令，根据要求配置好密钥
 # https://docs.amazonaws.cn/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration
+# 如果需要多个 profile ，用 aws configure --profile profilename1 来配置
+# 运行脚本时用 -P profilename 来使用不同的 AWS Profile.
 # 本脚本仅用于 bash 环境，适用于 Linux/MacOS
 # 如果需要 Windows 上使用请参考以下 URL 安装 Cygwin/apt-cyg:
 # https://tech.yj777.cn/cygwin-%e6%b8%85%e5%8d%8e%e9%95%9c%e5%83%8f/
@@ -130,7 +131,8 @@ is_all_digits () {
 # https://docs.amazonaws.cn/cli/latest/userguide/install-windows.html
 # 目前仅用于自动更新 GoDaddy 域名，命令行设置 -d FQDN 后，可自动更新
 # 
-# 本程序有条件的话可以定期执行，譬如每 5 分钟检查端口被封情况
+# 本程序有条件的话可以定期执行，譬如每 12 分钟检查端口被封情况，crontab 例子：
+# */12 * * * * /bin/ChinaLadder.sh -p 2019 -P profilename -d ladder.domain.com -t email_address@qq.com
 # 退出码： 
 #	1: 脚本需要的命令不存在
 #	2: 输入参数有误
@@ -138,11 +140,15 @@ is_all_digits () {
 #	99: 端口能正常访问，无需更改
 # #######################################################################
 
-while getopts "p:t:d:" opt 2>/dev/null; do
+while getopts "P:p:t:d:" opt 2>/dev/null; do
   case $opt in
     p)
       # 这个 PORT 是你自己的 SS 侦听的端口，要根据你自己的配置传参数
       PORT=$OPTARG
+      ;;
+    P)
+      # AWS Profile Name, 可以用 aws configure --profile name 生成多个 profile
+      PROFILE=$OPTARG
       ;;
     d)
       # 要修改的 DNS 域名全称
@@ -165,12 +171,13 @@ done
 # 设置临时文件
 tmpJSON="/tmp/awscli.json"
 GODADDY_KEY="$(dirname $0)/godaddy.json"
+[ -n "$PROFILE" ] && AWS="aws --profile $PROFILE " || AWS="aws"
 check_command
 remove_floatIP
-aws ec2 describe-instances >$tmpJSON
+$AWS ec2 describe-instances >$tmpJSON
 INST=$(cat $tmpJSON |jq  '.[]'|jq  -r '.[] | .Instances' |jq -r '.[] | .InstanceId')
 OLDIP=$(cat $tmpJSON |jq  '.[]'|jq  -r '.[] | .Instances' |jq -r '.[] | .PublicIpAddress')
-AllocId=$(aws ec2 describe-addresses --public-ips $OLDIP|jq -r '.Addresses[] | .AllocationId')
+AllocId=$($AWS ec2 describe-addresses --public-ips $OLDIP|jq -r '.Addresses[] | .AllocationId')
 
 if [ -n "${OLDIP}" ];then
 	echo "实例 $INST 当前的 IP 为 ${OLDIP} 分配到 $AllocId"
@@ -182,4 +189,4 @@ else
 fi
 [ -f "$tmpJSON" ] && rm $tmpJSON
 echo "当前分配的所有地址："
-aws ec2 describe-addresses 
+$AWS ec2 describe-addresses 
