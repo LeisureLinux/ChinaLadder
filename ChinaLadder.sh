@@ -3,6 +3,7 @@
 # 详细使用说明请参见 Main Prog. 部分
 
 release_ip () {
+ [ -z "$AllocId" ] && echo "释放地址所需要的 分配 ID 参数缺失" && return
  $AWS ec2 release-address --allocation-id $AllocId
  [ $? == 0 ] && echo "IP $OLDIP 成功释放." || echo " :-( IP $OLDIP 释放失败"
 }
@@ -13,6 +14,7 @@ new_ip () {
 }
 
 associate_ip () {
+  [ -z "$INST" -o -z "$NEWIP" ] && echo "绑定实例所需要的参数缺失" && return
   $AWS ec2 associate-address --instance-id ${INST} --public-ip ${NEWIP}
   [ $? == 0 ] && echo "IP $NEWIP 成功的绑定到了实例 $INST" || echo " :-( 绑定 IP:$NEWIP 到实例 $INST 失败"
   [ -n "$FQDN" ] && GoDaddy $NEWIP
@@ -68,7 +70,7 @@ generate_json () {
 GoDaddy() {
 	[ ! -f "$GODADDY_KEY" ] && generate_json && return
 	newIP=$1
-	[ -z "$newIP" ] && return
+	[ -z "$newIP" ] && echo "修改 DNS 记录的新 IP 地址参数缺失" && return
 	RECORD=$(echo $FQDN|awk -F"." '{print $1}')
 	DOMAIN=$(echo $FQDN|awk -F"." '{print $(NF - 1) "." $NF}')
 	API_URL="https://api.godaddy.com/v1/domains"
@@ -90,13 +92,14 @@ GoDaddy() {
 }
 
 send_mail () {
-	[ -z "$MAIL_TO" -o -z "$msg" -o -z "$subject" ] && return
+	[ -z "$MAIL_TO" -o -z "$msg" -o -z "$subject" ] && echo "发送邮件所需要的参数缺失" && return
 	echo "$msg"|mail -s "$subject" -r "ChinaLadder@$(hostname).local"  \
 	-a 'Content-Type: text/html; charset=UTF-8' \
 	-a 'Content-Transfer-Encoding: 8bit' $MAIL_TO
 }
 
 check_port () {
+	[ -z "$1" -o -z "$2" ] && echo  "检查端口所需要的主机名/IP 或者 端口号 参数缺失" && return 
 	echo "检查 IP/主机: $1 上的端口 $2 ..."
 	nc -4 -w 2 $1 $2
 	[ $? == 0 ] && echo "看上去端口 $2 是好的啊！请检查是否其他问题再更改 IP 吧！" && exit 99
@@ -124,6 +127,8 @@ is_all_digits () {
 # https://docs.amazonaws.cn/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration
 # 如果需要多个 profile ，用 aws configure --profile profilename1 来配置
 # 运行脚本时用 -P profilename 来使用不同的 AWS Profile.
+# 目前仅支持一个 Profile 下一个实例，一个实例下一个 Public IP
+# 如果一个 Profile 有多个实例，可以把 Profile 拆分成多个，每个下面只管理一个实例
 # 本脚本仅用于 bash 环境，适用于 Linux/MacOS
 # 如果需要 Windows 上使用请参考以下 URL 安装 Cygwin/apt-cyg:
 # https://tech.yj777.cn/cygwin-%e6%b8%85%e5%8d%8e%e9%95%9c%e5%83%8f/
@@ -167,17 +172,21 @@ done
 [ -z "$PORT" ] && syntax
 [ $(is_all_digits $PORT) -eq 0 ] &&  echo "端口号 $PORT 不是数字!"  && syntax
 [ -n "$FQDN" ] && check_port $FQDN $PORT
-
-# 设置临时文件
-tmpJSON="/tmp/awscli.json"
-GODADDY_KEY="$(dirname $0)/godaddy.json"
 [ -n "$PROFILE" ] && AWS="aws --profile $PROFILE " || AWS="aws"
+
+# 临时文件
+tmpJSON="/tmp/awscli.json"
+# 放当前目录下的 GoDaddy Key文件 
+GODADDY_KEY="$(dirname $0)/godaddy.json"
+# 检查需要的命令是否存在
 check_command
+# 删除多余的浮动 IP，如果不要这个步骤，请注释掉
 remove_floatIP
+# 取出当前 Profile 下的实例
 $AWS ec2 describe-instances >$tmpJSON
 INST=$(cat $tmpJSON |jq  '.[]'|jq  -r '.[] | .Instances' |jq -r '.[] | .InstanceId')
 OLDIP=$(cat $tmpJSON |jq  '.[]'|jq  -r '.[] | .Instances' |jq -r '.[] | .PublicIpAddress')
-AllocId=$($AWS ec2 describe-addresses --public-ips $OLDIP|jq -r '.Addresses[] | .AllocationId')
+[ -n "$OLDIP" ] && AllocId=$($AWS ec2 describe-addresses --public-ips $OLDIP|jq -r '.Addresses[] | .AllocationId')
 
 if [ -n "${OLDIP}" ];then
 	echo "实例 $INST 当前的 IP 为 ${OLDIP} 分配到 $AllocId"
