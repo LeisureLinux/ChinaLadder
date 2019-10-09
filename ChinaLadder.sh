@@ -1,6 +1,9 @@
 #!/bin/bash
 # 用 AWS CLI 动态修改 EC2 IP 地址
 # 详细使用说明请参见 Main Prog. 部分
+# 作者：徐永久 (Albert Xu <albertxu@freelamp.com>)
+# 更新日期： 2019-10-10
+# 
 
 release_ip () {
  [ -z "$AllocId" ] && echo "释放地址所需要的 分配 ID 参数缺失" && return
@@ -126,14 +129,18 @@ is_all_digits () {
 # 运行本脚本前请先运行 aws configure 命令，根据要求配置好密钥
 # https://docs.amazonaws.cn/cli/latest/userguide/cli-chap-configure.html#cli-quick-configuration
 # 如果需要多个 profile ，用 aws configure --profile profilename1 来配置
-# 运行脚本时用 -P profilename 来使用不同的 AWS Profile.
-# 目前仅支持一个 Profile 下一个实例，一个实例下一个 Public IP
-# 如果一个 Profile 有多个实例，可以把 Profile 拆分成多个，每个下面只管理一个实例
-# 本脚本仅用于 bash 环境，适用于 Linux/MacOS
-# 如果需要 Windows 上使用请参考以下 URL 安装 Cygwin/apt-cyg:
-# https://tech.yj777.cn/cygwin-%e6%b8%85%e5%8d%8e%e9%95%9c%e5%83%8f/
-# 再参照 AWS CLI 手册安装 Windows 上的 AWS CLI:
-# https://docs.amazonaws.cn/cli/latest/userguide/install-windows.html
+#     运行脚本时用 -P profilename 来使用不同的 AWS Profile.
+#     目前仅支持一个 Profile 下一个实例，一个实例下一个 Public IP
+#     如果一个 Profile 有多个实例，可以把 Profile 拆分成多个，每个下面只管理一个实例
+# 本脚本仅用于 bash 环境，适用于 Linux/MacOS，但是已经在 Cygwin 上测试成功
+# 如果需要 Windows Cygwin 上使用请参考以下 URL 安装 Cygwin/apt-cyg:
+#     https://tech.yj777.cn/cygwin-%e6%b8%85%e5%8d%8e%e9%95%9c%e5%83%8f/
+#     安装相关的软件包：apt-cyg install jq nc curl git 即可
+#     git clone 本脚本后如果遇到不能运行是因为文件末尾添加了 ^M，用 vim -b 去掉回车(^M) 即可
+#     再参照 AWS CLI 手册安装 Windows 上的 AWS CLI:
+#     https://docs.amazonaws.cn/cli/latest/userguide/install-windows.html
+#     Windows 10 的用户也可以跑 wsl，直接使用 Linux 子系统，或者用 Hyper-V 安装 Linux 虚拟机
+#     Widndows 7 之后的操作系统也可以用 VirtualBox 之类安装 Linux 虚拟机
 # 目前仅用于自动更新 GoDaddy 域名，命令行设置 -d FQDN 后，可自动更新
 # 
 # 本程序有条件的话可以定期执行，譬如每 12 分钟检查端口被封情况，crontab 例子：
@@ -152,7 +159,7 @@ while getopts "P:p:t:d:" opt 2>/dev/null; do
       PORT=$OPTARG
       ;;
     P)
-      # AWS Profile Name, 可以用 aws configure --profile name 生成多个 profile
+      # 大写 P，添加 AWS Profile 参数, 可以用 aws configure --profile name 生成多个 profile
       PROFILE=$OPTARG
       ;;
     d)
