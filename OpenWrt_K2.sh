@@ -11,7 +11,7 @@
 # wget -4 --no-check-certificate -O -  \
 #    https://raw.githubusercontent.com/ZenBoy999/ChinaLadder/master/OpenWrt_K2.sh |sh
 echo "正在更新 opkg 库中，时间会比较长，请耐心等候 ..."
-opkg -V0 update
+# opkg -V0 update
 [ $? != 0 ] && echo "更新软件包错误，请检查网络是否通畅" && exit 1
 echo "安装 中文 Web 界面中 ..."
 opkg -V0 install luci-i18n-base-zh-cn
@@ -27,8 +27,11 @@ opkg -V0 install libustream-openssl dnscrypt-proxy luci-app-dnscrypt-proxy
 [ $? != 0 ] && echo "安装 DNS 加密出错" && E=1
 # echo "设置 wpad 主机名 ..."
 [ "$E" = "1" ] && echo "安装过程有出错的步骤，请手工检查，或者尝试重新运行本脚本"
-echo "接下来，您需要添加 shadowsocks-libev 的远程服务器，添加一条 wpad 的主机记录，\
-	用 genpac 生成一个 wpad.dat 文件放到 /www 目录下"
+echo "接下来，您需要添加 shadowsocks-libev 的远程服务器，
+	添加一条 wpad 的主机记录，
+	用 genpac 生成一个 wpad.dat 文件放到 /www 目录下
+"
+echo
 echo "重启路由后，在 IE/Firefox/手机Wi-Fi配置/网络电视 等设备上，设置自动代理即可科学上网了"
 echo "############  刷机愉快！ ##############"
 
