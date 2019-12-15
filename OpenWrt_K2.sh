@@ -1,17 +1,23 @@
 #!/bin/sh
-# 本脚本为斐讯 K2 刷 OpenWrt 后，需要安装的一堆软件
+# 本脚本为斐讯(PHICOMM) K2 刷 OpenWrt 后，需要安装的一堆软件
 # 初学者可以通过 Web 界面逐个搜索并安装
 # 本文旨在具有一定 Linux 基础的人通过 Putty/SSH 等远程登录路由器
 # 进入 OpenWrt 操作系统后一条命令安装所有需要的软件
-#
+# 由于 K2 只有 8M Flash，所以本文没有集成和 SS 配合的  kcptun 加速
+# 最近新出的 V2ray 挂梯也比较庞大，不能集成
 # 命令行 wget 自动执行本脚本需要以下三个软件提前安装
 # 即 刷机后首先命令行下运行：
 # opkg update; opkg install libustream-openssl ca-bundle ca-certificates
 # 然后用 wget 调用本脚本
 # wget -4 --no-check-certificate -O -  \
 #    https://raw.githubusercontent.com/ZenBoy999/ChinaLadder/master/OpenWrt_K2.sh |sh
+# 详细流程请参考：斐讯 K2 的不死鸟刷机-科学上网和广告屏蔽
+# URL: https://tech.yj777.cn/%e6%96%90%e8%ae%af-k2-%e7%9a%84%e4%b8%8d%e6%ad%bb%e9%b8%9f%e5%88%b7%e6%9c%ba-%e6%9c%80%e4%bd%b3%e5%ae%9e%e8%b7%b5/
+# QQ: 8122093
+#
+
 echo "正在更新 opkg 库中，时间会比较长，请耐心等候 ..."
-# opkg -V0 update
+opkg -V0 update
 [ $? != 0 ] && echo "更新软件包错误，请检查网络是否通畅" && exit 1
 echo "安装 中文 Web 界面中 ..."
 opkg -V0 install luci-i18n-base-zh-cn
