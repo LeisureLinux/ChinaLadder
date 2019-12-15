@@ -31,13 +31,24 @@ opkg -V0 install shadowsocks-libev-ss-local luci-app-shadowsocks-libev
 echo "安装 DNSCrypt-Proxy DNS 加密，广告屏蔽中 ..."
 opkg -V0 install libustream-openssl dnscrypt-proxy luci-app-dnscrypt-proxy
 [ $? != 0 ] && echo "安装 DNS 加密出错" && E=1
-# echo "设置 wpad 主机名 ..."
+echo "修改时区为 Asia/Shanghai "
+uci set system.@system[0].zonename='Asia/Shanghai'
+uci set system.@system[0].timezone='CST-8'
+echo "修改 Polipo 上游配置，请重启 Polipo 服务并确认当前配置正确设置了 socksParentProxy"
+uci set polipo.general.socksParentProxy='127.0.0.1:1080'
+uci set polipo.general.socksProxyType='socks5'
+uci set polipo.general.allowedPorts='80-65535'
+uci set dhcp.@dnsmasq[0].localservice='0'
+uci set dhcp.@dnsmasq[0].nonwildcard='0'
+uci set dhcp.@dnsmasq[0].rebind_protection='0'
+uci commit
+echo " Github 上下载 wpad.dat 文件 ..."
+wget --no-check-certificate -O /www/wpad.dat "https://raw.githubusercontent.com/ZenBoy999/ChinaLadder/master/wpad.dat"
+[ $? != 0 ] && echo "下载 wpad.dat 文件出错了" && E=1
 [ "$E" = "1" ] && echo "安装过程有出错的步骤，请手工检查，或者尝试重新运行本脚本"
 echo "接下来，您需要添加 shadowsocks-libev 的远程服务器，
-	添加一条 wpad 的主机记录，
-	用 genpac 生成一个 wpad.dat 文件放到 /www 目录下
+	添加一条 wpad 的主机记录
 "
 echo
 echo "重启路由后，在 IE/Firefox/手机Wi-Fi配置/网络电视 等设备上，设置自动代理即可科学上网了"
 echo "############  刷机愉快！ ##############"
-
