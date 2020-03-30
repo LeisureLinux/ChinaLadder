@@ -1,7 +1,7 @@
 #!/bin/bash
 # 通过阿里云 aliyun cli 操作 阿里云 DNS 域名
 # 作者：甬洁网络 <https://www.yj777.cn> 
-# 语法：ali_ddns.sh record domain 
+# 语法：ali_ddns.sh record domain [ali_profile]
 # 例如：在家里的路由器上定时跑 ali_ddns.sh home abcd.com 
 #   就可以通过 home.abcd.com 访问家里的设备
 
@@ -34,7 +34,7 @@ updateRR () {
   local rrValue=$(checkValue $domain $rr)
   [ "$rrValue" = "$value" ] && echo "$value 没有变动，无需更新记录" && return
   # 否则修改记录值
-  $DNS UpdateDomainRecord --RecordId --RR $rr  --Type $type --Value $value || \
+  $DNS UpdateDomainRecord --RecordId $rrID --RR $rr  --Type $type --Value $value || \
   echo "记录: $rr.$domain 更新为：$value"
 }
 
@@ -75,6 +75,7 @@ profile="$3"
 [ -z "$profile" ] && profile="default"
 RE=$(aliyun configure get region -p "$profile")
 [ $? != 0 -o "$RE" = "" ] && echo "aliyun cli 配置有问题" && exit 0
+# 定义 DNS 命令
 DNS="aliyun -p $profile alidns"
 URL="https://ipv4bot.whatismyipaddress.com/"
 IP=$(curl -sS $URL)
